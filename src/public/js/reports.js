@@ -33,7 +33,18 @@ function createReportItem(report) {
   created.className = 'report-date';
   created.textContent = new Date(report.createdAt).toLocaleString();
   item.append(channel, reason, description, status, created);
-  if (report.evidenceUrl) {
+
+  if (report.evidenceUrls && report.evidenceUrls.length > 0) {
+    for (const url of report.evidenceUrls) {
+      const evidence = document.createElement('a');
+      evidence.href = url;
+      evidence.target = '_blank';
+      evidence.rel = 'noopener';
+      evidence.textContent = 'View evidence image';
+      evidence.style.display = 'block';
+      item.append(evidence);
+    }
+  } else if (report.evidenceUrl) {
     const evidence = document.createElement('a');
     evidence.href = report.evidenceUrl;
     evidence.target = '_blank';
@@ -62,25 +73,28 @@ async function submitReport(event) {
   formData.append('channelId', channelId);
   formData.append('reason', document.querySelector('#report-reason').value);
   formData.append('description', document.querySelector('#report-description').value);
-  const evidence =
-    document.querySelector('#report-evidence').files[0];
+
+  const evidenceFiles = document.querySelector('#report-evidence').files;
+
   // TODO v4.5 4:
   // Completa el nombre del campo utilizado para enviar la imagen.
   // Objetivo: relacionar el archivo del formulario con upload.single().
   // Resultado esperado: Multer reconocerá la evidencia enviada por el navegador.
-  if (evidence) {
-    formData.append('________', evidence);
+  for (const file of evidenceFiles) {
+    formData.append('evidence', file);
   }
 
   reportFormStatus.textContent = 'Submitting report…';
+
   // TODO v4.5 5:
   // Completa el body de la petición utilizando el FormData construido.
   // Objetivo: enviar los campos de texto y la evidencia en una misma solicitud.
   // Resultado esperado: POST /api/reports recibirá correctamente multipart/form-data.
   const response = await fetch('/api/reports', {
     method: 'POST',
-    body: ________
+    body: formData
   });
+
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     reportFormStatus.textContent = payload.error?.message || 'Could not submit the report.';
@@ -98,6 +112,46 @@ function configureReportForm() {
   document.querySelector('#report-channel-id').value = channelId;
   document.querySelector('#report-channel').textContent = 'Report the selected channel.';
   reportForm.addEventListener('submit', submitReport);
+}
+
+async function updateReportData(reportId, reason, description, status) {
+  const response = await fetch(`/api/reports/${reportId}`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      reason,
+      description,
+      status
+    })
+  });
+  if (!response.ok) {
+    console.error('Error al actualizar');
+    return;
+  }
+  console.log('Reporte actualizado correctamente');
+  await loadReports();
+}
+
+// TODO 16: Invocar DELETE desde la View
+async function deleteReportData(reportId) {
+  const confirmDelete = confirm('¿Estás seguro de que deseas eliminar este reporte?');
+  if (!confirmDelete) return;
+
+  try {
+    const response = await fetch(`/api/reports/${reportId}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      console.error('Error al eliminar el reporte');
+      return;
+    }
+
+    console.log('Reporte eliminado correctamente');
+    await loadReports();
+  } catch (error) {
+    console.error('Error de red:', error);
+  }
 }
 
 document.querySelector('#logout').addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }); location.href = '/login'; });

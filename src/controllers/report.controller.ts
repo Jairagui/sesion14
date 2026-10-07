@@ -44,20 +44,29 @@ export const createReport: RequestHandler = async (request, response) => {
     // Completa la propiedad de Multer que contiene el nombre final del archivo.
     // Objetivo: construir la URL que se almacenará dentro del Report.
     // Resultado esperado: evidenceUrl tendrá una ruta como /uploads/reports/archivo.png.
-    const evidenceUrl = file
-      ? `/uploads/reports/${file.________}`
-      : undefined;
+    let singleUrl;
+    const multiUrls: string[] = [];
+
+    if (request.file) {
+      singleUrl = `/uploads/reports/${request.file.filename}`;
+      multiUrls.push(singleUrl);
+    } else if (request.files) {
+      const files = request.files as Express.Multer.File[];
+      files.forEach((f) => multiUrls.push(`/uploads/reports/${f.filename}`));
+      singleUrl = multiUrls[0];
+    }
 
     // TODO v4.5 3:
     // Completa el método del Model utilizado para crear un nuevo Report.
     // Objetivo: persistir los datos del reporte y la referencia de la evidencia.
     // Resultado esperado: MongoDB contendrá un nuevo Report con status OPEN.
-    const report = await Report.________({
+    const report = await Report.create({
       userId,
       channelId,
       reason,
       description,
-      evidenceUrl
+      evidenceUrl: singleUrl,
+      evidenceUrls: multiUrls
     });
 
     response.status(201).json({ report });
@@ -72,9 +81,48 @@ export const listReports: RequestHandler = async (request, response) => {
   // Completa el método de Mongoose utilizado para consultar los Reports del usuario.
   // Objetivo: recuperar los reportes existentes del usuario autenticado.
   // Resultado esperado: GET /api/reports devolverá los Reports ordenados por fecha.
-  const reports = await Report.________({ userId: getUserId(request) })
-    .populate('channelId', 'name')
-    .sort('-createdAt');
+  const reports = await Report.find({ userId: getUserId(request) })
+      .populate('channelId', 'name')
+      .sort('-createdAt');
 
   response.json({ reports });
+};
+
+export const updateReport: RequestHandler = async (request, response) => {
+  const { reason, description, status } = request.body;
+
+  const report = await Report.findOneAndUpdate(
+      {
+        _id: request.params.id,
+        userId: getUserId(request)
+      },
+      {
+        reason,
+        description,
+        status
+      },
+      {
+        new: true,
+        runValidators: true
+      }
+  );
+
+  if (!report) {
+    throw new AppError(404, 'REPORT_NOT_FOUND', 'El reporte no existe o no tienes permisos para modificarlo');
+  }
+
+  response.json({ report });
+};
+
+export const deleteReport: RequestHandler = async (request, response) => {
+  const report = await Report.findOneAndDelete({
+    _id: request.params.id,
+    userId: getUserId(request)
+  });
+
+  if (!report) {
+    throw new AppError(404, 'REPORT_NOT_FOUND', 'El reporte no existe o no tienes permisos para eliminarlo');
+  }
+
+  response.json({ message: 'Report deleted successfully' });
 };

@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { createReport, listReports } from '../controllers/report.controller.js';
+import { listReports, createReport, updateReport, deleteReport } from '../controllers/report.controller.js';
 import { authenticate } from '../middleware/authenticate.middleware.js';
 import { upload } from '../middleware/upload.js';
+
 
 export const reportRouter = Router();
 
@@ -11,8 +12,18 @@ reportRouter.get('/', authenticate, listReports);
 // Objetivo: procesar la imagen antes de ejecutar createReport.
 // Resultado esperado: el Controller podrá acceder al archivo mediante request.file.
 reportRouter.post(
-  '/',
-  authenticate,
-  upload.________('evidence'),
-  createReport
+    '/',
+    authenticate,
+    upload.array('evidence', 5),
+    createReport
+);
+reportRouter.patch(
+    '/:id',
+    authenticate,
+    updateReport
+);
+reportRouter.delete(
+    '/:id',
+    authenticate,
+    deleteReport
 );

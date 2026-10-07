@@ -1,4 +1,5 @@
 import { app } from './app.js';
+import express from 'express';
 import { connectDatabase } from './config/database.js';
 import { env } from './config/env.js';
 
